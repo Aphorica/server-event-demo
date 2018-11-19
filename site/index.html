@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Per User SSE Demo</title>
+  <style>
+    body {font-family:Arial, Helvetica, sans-serif;
+          text-align:center;}
+    div, button, input {font-size: 1.5em;}
+    button {border-radius:0.5em;background-color:lightgray;}
+  </style>
+</head>
+<body>
+  <h1>Push the button, Max!!</h1>
+  <input placeholder="Enter name" id="name" type="text" aria-label="Name"/>
+  <br/><br/><br/>
+  <div><button id="pushme">Submit!</button></div>
+  <br/><br/>
+  <div>Message: <span id="message">Push the button...</span></div>
+  <div>State: <span id="state">(waiting)</span></div>
+  <br/><br/>
+  <div><button id="disconnect">Stop listening</button></div>
+</body>
+<script src="./jquery-2.1.4.min.js"></script>
+<script src="./axios.min.js"></script>
+<script>
+  let SSESource = null;
+  let myID;
+  $("#pushme").on('click', function(evt) {
+    let name = $('#name').val();
+    if (name.length === 0) {
+      alert("Need a name to start...");
+      return;
+    }
+    console.log('Started for: ' + name);
+    if (!SSESource) {
+      axios.get('http://localhost:3000/make-id/' + name)
+      .then(function(rsp) {
+        myID = rsp.data;
+        console.log(' --> set myID: ' + myID);
+        registerServerListener(myID);
+        doSubmit();
+      })
+      .catch(function(err){
+        console.log('Error registering: ' + err);
+      });
+    } else {
+      doSubmit();
+    }
+
+  });
+
+  $("#disconnect").on('click', function(evt) {
+    console.log('in disconnect, closing SSESource');
+    SSESource.close();
+    SSESourceClosed();      // no event on close --
+                            // force response
+  });
+
+  function doSubmit(){
+    axios.get("http://localhost:3000/submitted/" + myID)
+    .then(function(rsp) {
+      $("#message").text("Submitted for: " + myID + " -- waiting!");
+    })
+    .catch(function(err) {
+      console.log('submit error: ' + err);
+    });
+  }
+
+  function SSESourceClosed() {
+    $("#state").text("Disconnected"); 
+    axios.get('http://localhost:3000/disconnect/' + myID)
+    .then(function(rsp){
+      $("#message").text(rsp.data);
+      SSESource = null;
+      myID = null;
+    })
+    .catch(function(err) {
+      console.log('disconnect error: ' + err);
+    }); 
+  };
+
+  function registerServerListener(name) {
+    if (!!window.EventSource) {
+      SSESource = new EventSource('http://localhost:3000/stream/' + name);
+      SSESource.addEventListener('message', function(evt) {
+        $("#message").text(evt.data);
+        setTimeout(function(){
+          $("#message").text("Push it again...");
+        },10000);
+      });
+
+      SSESource.addEventListener('open', function(evt) {
+        $("#state").text("Connected");
+      });
+
+      SSESource.addEventListener('error', function(evt){
+        if (evt.target.readyState === EventSource.CLOSED) {
+          SSESourceClosed();      
+        } else if (evt.target.readyState === EventSource.CONNECTING) {
+          $("#state").text("Connecting...");
+        }
+      });
+    } else {
+      console.log("Your browser doesn't support SSE")
+    }
+  }
+</script>
+</html>
