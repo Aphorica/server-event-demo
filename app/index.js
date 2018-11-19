@@ -67,6 +67,12 @@ app.get('/registered-users', function(req, res) {
   sendResponse(res, rspData);
 });
 
+app.get('/clear-registrants', function(req, res) {
+  connections = {};
+  sendResponse(res, "cleared");
+  notifyListenersChanged();
+});
+
 app.get('/stream/:id', function(req, res) {
   let id = req.params.id;
   res.sseSetup();

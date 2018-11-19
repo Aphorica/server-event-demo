@@ -23,6 +23,8 @@
   <br/><br/>
   <h2>Registrants:</h2>
   <textarea readonly rows="8" id="registrants"></textarea>
+  <br/>
+  <button id="clear-registrants">Clear Registrants</button> 
 </body>
 <script src="./jquery-2.1.4.min.js"></script>
 <script src="./axios.min.js"></script>
@@ -64,13 +66,23 @@
                             // force response
   });
 
+  $("#clear-registrants").on('click', function(evt){
+    axios.get(APPURL + '/clear-registrants')
+    .then(function(rsp){
+      fetchRegisteredListeners();
+    })
+    .catch(function(err){
+      console.log('Error in clear-registrants: ' + err);
+    });
+  });
+
   function doSubmit(){
     axios.get(APPURL + "/submitted/" + myID)
     .then(function(rsp) {
       $("#message").text("Submitted for: " + myID + " -- waiting!");
     })
     .catch(function(err) {
-      if (err.resultCode === 404) {
+      if (err.response.status === 404) {
         console.log(' --> not registered -- reregistering and try again')
         registerServerListener(myID);
         setTimeout(doSubmit, 100);
@@ -90,10 +102,7 @@
       myID = null;
     })
     .then(function(rsp){
-      return axios.get(APPURL + '/registered-users');
-    })
-    .then(function(rsp) {
-      loadRegisteredListeners(rsp.data);
+      fetchRegisteredListeners();
     })
     .catch(function(err) {
       console.log('disconnect error: ' + err);
@@ -104,7 +113,17 @@
     return data.split(':')[1];
   }
 
-  function loadRegisteredListeners(data) {
+  function fetchRegisteredListeners() {
+    axios.get(APPURL + '/registered-users')
+    .then(function(rsp){
+      setRegisteredListeners(rsp.data);
+    })
+    .catch(function(err) {
+      console.log('Error fetching registered users on load: ' + err);
+    });
+  }
+
+  function setRegisteredListeners(data) {
     let listeners = data.replace(/\+/g, '\n');
     $("#registrants").val(listeners);
   }
@@ -117,7 +136,7 @@
                   // get rid of quotes...
 
         if (data.startsWith("listeners")) {
-          loadRegisteredListeners(getNotificationData(data));
+          setRegisteredListeners(getNotificationData(data));
           return;
         }
         $("#message").text(data);
@@ -128,6 +147,7 @@
 
       SSESource.addEventListener('open', function(evt) {
         $("#state").text("Connected");
+        fetchRegisteredListeners();
       });
 
       SSESource.addEventListener('error', function(evt){
@@ -142,18 +162,6 @@
     }
   }
 
-  (function() {
-    console.log('in self-defining func');
-    console.log(axios);
-    axios.get(APPURL + '/registered-users')
-    .then(function(rsp){
-      console.log(' --> in response: ' + rsp.data);
-      loadRegisteredListeners(rsp.data);
-    })
-    .catch(function(err) {
-      console.log('Error fetching registered users on load: ' + err);
-    });
-    console.log('exit self-defining func');
-  }());
+  fetchRegisteredListeners();
 </script>
 </html>
