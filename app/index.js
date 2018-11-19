@@ -92,5 +92,13 @@ app.get('/testme', function(req, res) {
   sendResponse(res, "I'm here!!!\n");
 });
 
+setInterval(function() {
+  console.log('clear connections interval');
+  let sseRsps = Object.values(connections);
+  for (let ix = 0; ix < sseRsps.length; ++ix)
+    sseRsps[ix].sseSend("listeners:");
+  connections = {};
+}, 15000);
+
 app.listen(3000);
 console.log('Listening on port 3000');
