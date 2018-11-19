@@ -6,6 +6,7 @@
     body {font-family:Arial, Helvetica, sans-serif;
           text-align:center;}
     div, button, input {font-size: 1.5em;}
+    textarea {font-size:1.2em};
     button {border-radius:0.5em;background-color:lightgray;}
   </style>
 </head>
@@ -21,13 +22,15 @@
   <div><button id="disconnect">Stop listening</button></div>
   <br/><br/>
   <h2>Registrants:</h2>
-  <textarea readonly id="registrants"></textarea>
+  <textarea readonly rows="8" id="registrants"></textarea>
 </body>
 <script src="./jquery-2.1.4.min.js"></script>
 <script src="./axios.min.js"></script>
 <script>
   let SSESource = null;
   let myID;
+  const APPURL = 'http://localhost:3000';
+
   $("#pushme").on('click', function(evt) {
     let name = $('#name').val();
     if (name.length === 0) {
@@ -36,7 +39,7 @@
     }
     console.log('Started for: ' + name);
     if (!SSESource) {
-      axios.get('http://localhost:3000/make-id/' + name)
+      axios.get(APPURL + '/make-id/' + name)
       .then(function(rsp) {
         myID = rsp.data;
         console.log(' --> set myID: ' + myID);
@@ -52,6 +55,9 @@
   });
 
   $("#disconnect").on('click', function(evt) {
+    if (SSESource === null)
+      return; 
+
     console.log('in disconnect, closing SSESource');
     SSESource.close();
     SSESourceClosed();      // no event on close --
@@ -59,7 +65,7 @@
   });
 
   function doSubmit(){
-    axios.get("http://localhost:3000/submitted/" + myID)
+    axios.get(APPURL + "/submitted/" + myID)
     .then(function(rsp) {
       $("#message").text("Submitted for: " + myID + " -- waiting!");
     })
@@ -77,22 +83,44 @@
 
   function SSESourceClosed() {
     $("#state").text("Disconnected"); 
-    axios.get('http://localhost:3000/disconnect/' + myID)
+    axios.get(APPURL + '/disconnect/' + myID)
     .then(function(rsp){
       $("#message").text(rsp.data);
       SSESource = null;
       myID = null;
+    })
+    .then(function(rsp){
+      return axios.get(APPURL + '/registered-users');
+    })
+    .then(function(rsp) {
+      loadRegisteredListeners(rsp.data);
     })
     .catch(function(err) {
       console.log('disconnect error: ' + err);
     }); 
   };
 
+  function getNotificationData(data) {
+    return data.split(':')[1];
+  }
+
+  function loadRegisteredListeners(data) {
+    let listeners = data.replace(/\+/g, '\n');
+    $("#registrants").val(listeners);
+  }
+
   function registerServerListener(id) {
     if (!!window.EventSource) {
-      SSESource = new EventSource('http://localhost:3000/stream/' + id);
+      SSESource = new EventSource(APPURL + '/stream/' + id);
       SSESource.addEventListener('message', function(evt) {
-        $("#message").text(evt.data);
+        let data = evt.data.slice(1, -1);
+                  // get rid of quotes...
+
+        if (data.startsWith("listeners")) {
+          loadRegisteredListeners(getNotificationData(data));
+          return;
+        }
+        $("#message").text(data);
         setTimeout(function(){
           $("#message").text("Push it again...");
         },10000);
@@ -104,7 +132,7 @@
 
       SSESource.addEventListener('error', function(evt){
         if (evt.target.readyState === EventSource.CLOSED) {
-          SSESourceClosed();      
+          SSESourceClosed(); 
         } else if (evt.target.readyState === EventSource.CONNECTING) {
           $("#state").text("Connecting...");
         }
@@ -113,5 +141,19 @@
       console.log("Your browser doesn't support SSE")
     }
   }
+
+  (function() {
+    console.log('in self-defining func');
+    console.log(axios);
+    axios.get(APPURL + '/registered-users')
+    .then(function(rsp){
+      console.log(' --> in response: ' + rsp.data);
+      loadRegisteredListeners(rsp.data);
+    })
+    .catch(function(err) {
+      console.log('Error fetching registered users on load: ' + err);
+    });
+    console.log('exit self-defining func');
+  }());
 </script>
 </html>

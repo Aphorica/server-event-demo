@@ -20,6 +20,14 @@ function sendResponse(res, msg, code) {
   res.end(msg);
 }
 
+function notifyListenersChanged() {
+  let registrants = Object.keys(connections);
+  let sseRsps = Object.values(connections);
+  let msg = "listeners:" + registrants.join('+');
+  for (let ix = 0; ix < sseRsps.length; ++ix)
+    sseRsps[ix].sseSend(msg);
+}
+
 app.get('/make-id/:name', function(req,rsp) {
   let name = req.params.name;
   let id = '';
@@ -37,18 +45,26 @@ app.get('/submitted/:id', function(req, res) {
   let id = req.params.id;
   console.log('server in submitted: ' + id);
   if (id in connections) {
+    notifyListenersChanged();
+              // notify everyone of listener changes
     setTimeout(function() {
       let name = id.split('_')[0];
       let idKeys = Object.keys(connections);
       for (let ix = 0; ix < idKeys.length; ++ix)
         if (idKeys[ix].startsWith(name))
           connections[idKeys[ix]].sseSend("Server completion for: " + id);
+                // notify target listeners for specific event
     }, 5000);
 
     sendResponse(res, "Submitted for: " + id);
   } else {
     sendResponse(res, "Not registered", 404);
   }
+});
+
+app.get('/registered-users', function(req, res) {
+  let rspData = Object.keys(connections).join('+');
+  sendResponse(res, rspData);
 });
 
 app.get('/stream/:id', function(req, res) {
@@ -59,8 +75,10 @@ app.get('/stream/:id', function(req, res) {
 });
 
 app.get('/disconnect/:id', function(req,res){
-  delete connections[req.param.id];
+  let id = req.params.id;
+  delete connections[id];
   sendResponse(res, 'Server disconnected: ' + id)
+  notifyListenersChanged();
 });
 
 app.get('/testme', function(req, res) {
