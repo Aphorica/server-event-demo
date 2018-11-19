@@ -19,6 +19,9 @@
   <div>State: <span id="state">(waiting)</span></div>
   <br/><br/>
   <div><button id="disconnect">Stop listening</button></div>
+  <br/><br/>
+  <h2>Registrants:</h2>
+  <textarea readonly id="registrants"></textarea>
 </body>
 <script src="./jquery-2.1.4.min.js"></script>
 <script src="./axios.min.js"></script>
@@ -46,7 +49,6 @@
     } else {
       doSubmit();
     }
-
   });
 
   $("#disconnect").on('click', function(evt) {
@@ -62,6 +64,13 @@
       $("#message").text("Submitted for: " + myID + " -- waiting!");
     })
     .catch(function(err) {
+      if (err.resultCode === 404) {
+        console.log(' --> not registered -- reregistering and try again')
+        registerServerListener(myID);
+        setTimeout(doSubmit, 100);
+        return;
+      }
+      
       console.log('submit error: ' + err);
     });
   }
@@ -79,9 +88,9 @@
     }); 
   };
 
-  function registerServerListener(name) {
+  function registerServerListener(id) {
     if (!!window.EventSource) {
-      SSESource = new EventSource('http://localhost:3000/stream/' + name);
+      SSESource = new EventSource('http://localhost:3000/stream/' + id);
       SSESource.addEventListener('message', function(evt) {
         $("#message").text(evt.data);
         setTimeout(function(){

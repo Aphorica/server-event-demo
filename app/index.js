@@ -7,8 +7,11 @@ let connections = {};
 
 app.use(sse);
 
-function sendResponse(res, msg) {
-  res.writeHead(200, {
+function sendResponse(res, msg, code) {
+  if (code === undefined) {
+    code = 200;
+  }
+  res.writeHead(code, {
     'Content-Type': 'text/plain',
     'Cache-Control': 'no-cache',
     'Access-Control-Allow-Origin': '*'
@@ -33,15 +36,19 @@ app.get('/make-id/:name', function(req,rsp) {
 app.get('/submitted/:id', function(req, res) {
   let id = req.params.id;
   console.log('server in submitted: ' + id);
-  setTimeout(function() {
-    let name = id.split('_')[0];
-    let idKeys = Object.keys(connections);
-    for (let ix = 0; ix < idKeys.length; ++ix)
-      if (idKeys[ix].startsWith(name))
-        connections[idKeys[ix]].sseSend("Server completion for: " + id);
-  }, 5000);
+  if (id in connections) {
+    setTimeout(function() {
+      let name = id.split('_')[0];
+      let idKeys = Object.keys(connections);
+      for (let ix = 0; ix < idKeys.length; ++ix)
+        if (idKeys[ix].startsWith(name))
+          connections[idKeys[ix]].sseSend("Server completion for: " + id);
+    }, 5000);
 
-  sendResponse(res, "Submitted for: " + id);
+    sendResponse(res, "Submitted for: " + id);
+  } else {
+    sendResponse(res, "Not registered", 404);
+  }
 });
 
 app.get('/stream/:id', function(req, res) {
