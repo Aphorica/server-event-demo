@@ -95,7 +95,7 @@
 
   function SSESourceClosed() {
     $("#state").text("Disconnected"); 
-    axios.get(APPURL + '/disconnect/' + myID)
+    axios.get(APPURL + '/disconnect-registrant/' + myID)
     .then(function(rsp){
       $("#message").text(rsp.data);
       SSESource = null;
@@ -114,7 +114,7 @@
   }
 
   function fetchRegisteredListeners() {
-    axios.get(APPURL + '/registered-users')
+    axios.get(APPURL + '/list-registrants')
     .then(function(rsp){
       setRegisteredListeners(rsp.data);
     })
@@ -130,7 +130,7 @@
 
   function registerServerListener(id) {
     if (!!window.EventSource) {
-      SSESource = new EventSource(APPURL + '/stream/' + id);
+      SSESource = new EventSource(APPURL + '/register-listener/' + id);
       SSESource.addEventListener('message', function(evt) {
         let data = evt.data.slice(1, -1);
                   // get rid of quotes...
