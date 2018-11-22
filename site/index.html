@@ -5,22 +5,21 @@
   <style>
     body {font-family:Arial, Helvetica, sans-serif;
           text-align:center;}
-    div, button, input {font-size: 1.5em;}
-    textarea {font-size:1.2em};
-    button {border-radius:0.5em;background-color:lightgray;}
+    div, input {font-size: 1.5em;}
+    textarea {font-size:1.2em;}
+    button {font-size:1.2rem; border-radius:0.5em;background-color:lightgray;
+            margin:0 0.5rem;}
   </style>
 </head>
 <body>
   <h1>Push the button, Max!!</h1>
   <input placeholder="Enter name" id="name" type="text" aria-label="Name"/>
-  <br/><br/><br/>
-  <div><button id="pushme">Submit!</button></div>
   <br/><br/>
+  <div><button id="pushme">Submit!</button><button id="disconnect">Stop listening</button></div>
+  <hr/>
   <div>Message: <span id="message">Push the button...</span></div>
   <div>State: <span id="state">(waiting)</span></div>
-  <br/><br/>
-  <div><button id="disconnect">Stop listening</button></div>
-  <br/><br/>
+  <hr/>
   <h2>Registrants:</h2>
   <textarea readonly rows="8" id="registrants"></textarea>
   <br/>
@@ -135,8 +134,8 @@
         let data = evt.data.slice(1, -1);
                   // get rid of quotes...
 
-        if (data.startsWith("listeners")) {
-          setRegisteredListeners(getNotificationData(data));
+        if (data === "listeners-changed") {
+          fetchRegisteredListeners();
           return;
         }
         $("#message").text(data);

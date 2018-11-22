@@ -29,12 +29,11 @@ function sendResponse(res, msg, code) {
 
 function asyncNotifyListenersChanged() {   
   return new Promise(function(acc, rej) {
-    let idKeys = Object.keys(connections);
-    if (idKeys.length === 0)
+    if (connections.length === 0)
       rej(false);
 
     else {
-      let msg = "listeners:" + idKeys.join('+'); 
+      let msg = "listeners-changed"; 
       let sseRsps = Object.values(connections);
                   // work on a copy
 
@@ -170,7 +169,13 @@ app.get('/submitted/:id', function(req, res) {
 });
 
 app.get('/list-registrants', function(req, res) {
-  let rspData = Object.keys(connections).join('+');
+  let rspData = Object.keys(connections)
+                      .filter(function(idKey) {
+                        return connections[idKey] &&
+                               connections[idKey].duration !== 0;
+                      }).join('+');
+            // Debugging... we might have to async this if we need it
+            // in production...
   sendResponse(res, rspData);
 });
 
