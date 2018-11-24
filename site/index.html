@@ -6,7 +6,15 @@
     body {font-family:Arial, Helvetica, sans-serif;
           text-align:center;}
     div, input {font-size: 1.5em;}
-    textarea {font-size:1.2em;}
+    table {font-size:1.2rem;border-collapse:collapse;}
+    #message-table, #table-ctnr {width: 90%; margin:0 auto;
+                                 border:thin solid darkgray}
+    #table-ctnr {height:12rem;overflow-y:scroll;}
+    #table-ctnr table {width:100%;}
+    #table-ctnr table tr:nth-child(even) {background-color:#eee}
+    td {padding-top:0.3em; padding-bottom:0.3em;}
+    th {text-align:right;}
+    td {text-align:left;padding-left:1rem;}
     button {font-size:1.2rem; border-radius:0.5em;background-color:lightgray;
             margin:0 0.5rem;}
   </style>
@@ -16,14 +24,20 @@
   <input placeholder="Enter name" id="name" type="text" aria-label="Name"/>
   <br/><br/>
   <div><button id="pushme">Submit!</button><button id="disconnect">Stop listening</button></div>
-  <hr/>
-  <div>Message: <span id="message">Push the button...</span></div>
-  <div>State: <span id="state">(waiting)</span></div>
-  <hr/>
-  <h2>Registrants:</h2>
-  <textarea readonly rows="8" id="registrants"></textarea>
   <br/>
-  <button id="clear-registrants">Clear Registrants</button> 
+  <table id="message-table">
+    <tr><th>Message:</th><td id="message">Push the button...</td></tr>
+    <tr><th>Response:</th><td id="response">(none)</td></tr>
+    <tr><th>State:</th><td id="state">(waiting)</td></tr>
+  </table>
+  <h2>Registrants:</h2>
+  <div id="table-ctnr">
+  <table id="registrants"></table>
+  </div>
+  <br/>
+  <button id="clear-registrants">Clear Registrants</button>
+  <button id="trigger-cleanup">Trigger Cleanup</button><br/><br/>
+  <button id="trigger-server-response">Trigger Server Response</button>
 </body>
 <script src="./jquery-2.1.4.min.js"></script>
 <script src="./axios.min.js"></script>
@@ -75,10 +89,31 @@
     });
   });
 
+  $("#trigger-cleanup").on('click', function(evt){
+    axios.get(APPURL + '/trigger-cleanup')
+    .then(function(){
+      console.log('Cleanup ok');
+    })
+    .catch(function(err){
+      console.log('Error in cleanup: ' + err);
+    })
+  });
+
+  $("#trigger-server-response").on('click', function(evt){
+    axios.get(APPURL + '/trigger-server-response/' + myID)
+    .then(function(){
+      console.log('Triggered Server Reponse ok');
+    })
+    .catch(function(err){
+      console.log('Error in trigger-server-response: ' + err);
+    })
+  });
+
   function doSubmit(){
+    console.log('in doSubmit: ' + myID);
     axios.get(APPURL + "/submitted/" + myID)
     .then(function(rsp) {
-      $("#message").text("Submitted for: " + myID + " -- waiting!");
+      $("#message").text("Submitted for: " + myID);
     })
     .catch(function(err) {
       if (err.response.status === 404) {
@@ -108,40 +143,93 @@
     }); 
   };
 
-  function getNotificationData(data) {
-    return data.split(':')[1];
+  function getNotificationData(_data) {
+    let data = _data.charAt(0) === '"'? _data.slice(1,-1) : _data;
+              // dequote if quoted
+    let retData;
+    
+    if (data.indexOf('^') !== -1) {
+      let dataAry = data.split('^');
+
+      retData = {
+        response: dataAry[0],
+        info: dataAry[1].charAt(0) === '{'?
+              JSON.parse(dataAry[1].replace(/\\/g, '')) : dataAry[1]
+      };
+    }
+    else
+      retData = {response: data, info: null};
+
+    return retData;
   }
 
   function fetchRegisteredListeners() {
     axios.get(APPURL + '/list-registrants')
     .then(function(rsp){
-      setRegisteredListeners(rsp.data);
+      renderRegisteredListeners(rsp.data);
     })
     .catch(function(err) {
       console.log('Error fetching registered users on load: ' + err);
     });
   }
 
-  function setRegisteredListeners(data) {
-    let listeners = data.replace(/\+/g, '\n');
-    $("#registrants").val(listeners);
+  function toHMS(duration) {
+    let hours, mins, secs;
+    duration /= 1000;
+    hours = Math.floor(duration / 3600);
+    duration -= hours * 3600;
+    mins = Math.floor(duration / 60);
+    duration -= mins * 60;
+    secs = Math.floor(duration / 60);
+    return hours + 'h' + mins + 'm' + secs + 's';
+  }
+
+  function renderRegisteredListeners(data) {
+    let tableContents = '<tbody>\n';
+    let idKeys = Object.keys(data), idKey, startTime;
+    for (let ix = 0; ix < idKeys.length; ++ix) 
+    {
+      idKey = idKeys[ix];
+      tableContents +=
+            '<tr><td>' + 
+            idKey + 
+            '</td><td>' + 
+            new Date(data[idKey].start).toTimeString().substr(0,8) +
+            '</td><td>' +
+            toHMS(data[idKey].duration) +
+            '</td></tr>\n';      
+    }
+    tableContents += '</tbody>';
+    $("#registrants").html(tableContents);
   }
 
   function registerServerListener(id) {
     if (!!window.EventSource) {
       SSESource = new EventSource(APPURL + '/register-listener/' + id);
       SSESource.addEventListener('message', function(evt) {
-        let data = evt.data.slice(1, -1);
-                  // get rid of quotes...
+        let data = getNotificationData(evt.data);
 
-        if (data === "listeners-changed") {
-          fetchRegisteredListeners();
-          return;
+        switch(data.response) {
+          case "listeners-changed":
+            fetchRegisteredListeners();
+            return;
+
+          case "completed":
+          case "triggered":
+            if (data.info.id !== myID)
+              $("#message").text('Got reponse for someone else: ' + id);
+
+            $("#response").text('Received response: ' +
+              new Date(data.info.timestamp).toTimeString().substr(0,8));
+            break;
+
+          case "registered":
+            $("#message").text("Registered: " + data.info);
+            break;
+
+          default:
+            $("#message").text("Unrecognized: " + data.response);
         }
-        $("#message").text(data);
-        setTimeout(function(){
-          $("#message").text("Push it again...");
-        },10000);
       });
 
       SSESource.addEventListener('open', function(evt) {

@@ -114,7 +114,8 @@ function asyncNotifyCompletions(name) {
         else {
           let idKey = idKeys[ix];
           if ((idKey in connections) && idKey.startsWith(name))
-            connections[idKey].notifyRes.sseSend("Server completion for: " + idKey);
+            connections[idKey].notifyRes.sseSend( "completed^" +
+              JSON.stringify({"timestamp": Date.now(), "id":idKey}));
                     // notify target listeners for specific event
           
           setImmediate(notifyCompletions.bind(null, ++ix));
@@ -143,7 +144,7 @@ app.get('/submitted/:id', function(req, res) {
   let id = req.params.id;
   console.log('server in submitted: ' + id);
   if (id in connections) {
-    connections[id].notifyRes.start = Date.now();
+    connections[id].start = Date.now();
               // reset the timeout start
 
     if (req.params.duration)
@@ -168,15 +169,34 @@ app.get('/submitted/:id', function(req, res) {
   }
 });
 
+app.get('/trigger-server-response/:id', function(req,res) {
+  let id = req.params.id;
+  console.log('in trigger-server-response: ' +  id);
+
+  if (id in connections) {
+    connections[id].notifyRes.sseSend( "triggered^" +
+      JSON.stringify({"timestamp": Date.now(), "id":id}));
+  }
+
+  sendResponse(res, 'ok');
+});
+
 app.get('/list-registrants', function(req, res) {
-  let rspData = Object.keys(connections)
-                      .filter(function(idKey) {
-                        return connections[idKey] &&
-                               connections[idKey].duration !== 0;
-                      }).join('+');
-            // Debugging... we might have to async this if we need it
-            // in production...
-  sendResponse(res, rspData);
+  let idKeys = Object.keys(connections);
+  let rspData = {};
+  
+  for (let ix = 0; ix < idKeys.length; ++ix) {
+    let idKey = idKeys[ix];
+
+    if (connections[idKey] && connections[idKey].duration !== 0) {
+      rspData[idKey] = {
+        start: connections[idKey].start,
+        duration: connections[idKey].duration
+      };
+    }
+  }
+
+  sendResponse(res, JSON.stringify(rspData));
 });
 
 app.get('/clear-registrants', function(req, res) {
@@ -195,10 +215,11 @@ app.get('/register-listener/:id', function(req, res) {
       resObj = id in connections? connections[id] : 
                { start:Date.now(), duration: DEFAULT_DURATION} ;
   res.sseSetup();
-  res.sseSend("Registered: " + id);
+  res.sseSend("registered^" + id);
   
   resObj['notifyRes'] = res;
   connections[id] = resObj;
+  console.log('Server registered id: ' + id);
 });
 
 app.get('/disconnect-registrant/:id', function(req,res){
