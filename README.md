@@ -1,6 +1,6 @@
 #site-server-demo 
 
-Test per-user (browser) server-event action.
+Demo per-user (browser) server-event action.
 
 Open a bunch of browsers, type in a different name in each.
 Notifications should only come to that name.
