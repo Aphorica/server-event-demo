@@ -77,7 +77,8 @@
     SSESource.close();
     axios.get(APPURL + '/disconnect-registrant/' + myID)
     .then(function(rsp){
-      $('#message').text('Removal pending');
+      $('#message').text('Item removed');
+     SSESourceClosed();
     })
     .catch(function(err){
       console.log('Error disconnecting');
@@ -138,9 +139,25 @@
     });
   }
 
+  function setSSEStateText() {
+    if (SSESource !== null) {
+      let stateText =
+        SSESource.readyState === SSESource.CLOSED? "Disconnected" :
+        SSESource.readyState === SSESource.CONNECTING? "Connecting":
+        "Connected";
+
+        $("#state").text(stateText);
+    }
+  }
+
   function SSESourceClosed() {
-    $("#state").text("Disconnected"); 
-    fetchRegisteredListeners();
+    if (SSESource !== null) {
+      setSSEStateText();
+      fetchRegisteredListeners();
+      if (SSESource.readyState === SSESource.CLOSED)
+        SSESource = null;
+                // cleanup
+    }
   };
 
   function getNotificationData(_data) {
@@ -202,12 +219,6 @@
               fetchRegisteredListeners();
               return;
 
-            case "removed":
-              console.log(' --> entry removed...');
-              SSESource.close();
-              SSESourceClosed();
-              return;
-
             case "completed":
             case "triggered":
               if (data.info.id !== myID)
@@ -228,16 +239,15 @@
         });
 
         SSESource.addEventListener('open', function(evt) {
-          $("#state").text("Connected");
+          setSSEStateText();
           fetchRegisteredListeners();
         });
 
         SSESource.addEventListener('error', function(evt){
           if (evt.target.readyState === EventSource.CLOSED) {
-            console.log(' --> got EventSource.CLOSED event');
             SSESourceClosed(); 
           } else if (evt.target.readyState === EventSource.CONNECTING) {
-            $("#state").text("Connecting...");
+            setSSEStateText();
           }
         });
 

@@ -3,12 +3,12 @@ const sse = require('./sse');
 
 const app = express();
 
-const RETRY_INTERVAL = 10000; // 120000;
-const CLEANUP_INTERVAL = 2500; // 30000;
-const CLEANUP_STALE_ENTRIES_THRESHOLD = 86400000;
-          // 5 mins - check to delete cleanups
+const RETRY_INTERVAL = 120000;
+const CLEANUP_INTERVAL = 3600000;
+const CLEANUP_STALE_ENTRIES_THRESHOLD = 43200000;
+          // 12hrs
 
-let connections = {}, removeQueue = {};
+let connections = {};
 let cleanupTimerID = null;
 
 app.use(sse);
@@ -62,9 +62,7 @@ function asyncNotifyListenersChanged() {
 function asyncCleanupRegistered() {
   return new Promise(function(acc, rej) {
     console.log('in asyncCleanupRegistered');
-    let allEntries = Object.assign(
-              Object.assign({}, removeQueue), connections);
-    let idKeys = Object.keys(allEntries);
+    let idKeys = Object.keys(connections);
                     // pull a copy of the keys
 
     if (idKeys.length === 0) {
@@ -89,30 +87,22 @@ function asyncCleanupRegistered() {
             }
 
             idKey = idKeys[ix];
-            if (!allEntries[idKey])
+            if (!connections[idKey])
               continue;
                     // got deleted in between calls -
                     // go on to next without exiting
 
-            sseRsp = allEntries[idKey];
+            sseRsp = connections[idKey];
             duration = Date.now() - sseRsp['registered-ts'];
             console.log(' --> duration for id: ' + idKey + ', registered-ts: ' +
                         sseRsp['registered-ts'] + ' = ' +
                         duration/1000);
-            if (idKey in removeQueue) {
-              if (duration > CLEANUP_STALE_ENTRIES_THRESHOLD) {
-                console.log(' --> cleaning stale entry, id: ' + idKey);
-                delete removeQueue[idKey];
-              }
 
-            } else {
-              if (duration > RETRY_INTERVAL + 1000) {
-                console.log(' --> moving: ' + idKey + ' to removeQueue');
-                removeQueue[idKey] = sseRsp;
-                delete connections[idKey];
-                            // move to removeQueue
-                break;
-              }
+            if (duration > CLEANUP_STALE_ENTRIES_THRESHOLD) {
+              console.log(' --> removing: ' + idKey + ' from connections');
+              delete connections[idKey];
+                          // thpthpthp - gone.
+              break;
             }
                     // else loop around for the next
             ++ix;
@@ -203,6 +193,9 @@ app.get('/trigger-server-response/:id', function(req,res) {
     connections[id].notifyRes.sseSend(RETRY_INTERVAL, "triggered^" +
       JSON.stringify({"timestamp": Date.now(), "id":id}));
   }
+  else {
+    console.log(" --> not in connections - no trigger");
+  }
 
   sendResponse(res,'ok');
 });
@@ -247,33 +240,29 @@ app.get('/register-listener/:id', function(req, res) {
 
   console.log('in register-listener, id: ' + id);
 
-  if (id in removeQueue) {
-    // marked for deletion
-    removeQueue[id].notifyRes.sseSend(0, 'removed');
-    setTimeout(function(){delete removeQueue[id]}, 1000);
-    console.log(' --> deleted from removeQueue: ' + id);
+  if (!(id in connections)) {
+    resObj['notifyRes'] = res;
+    console.log(' --> server registered id: ' + id);
   } else {
-    if (!(id in connections)) {
-      resObj['notifyRes'] = res;
-      console.log(' --> server registered id: ' + id);
-    } else {
-      console.log(' --> is in connections');
-    }
-
-    res.sseSetup();
-    res.sseSend(RETRY_INTERVAL, "registered^" + id);
-    resObj['registered-ts'] = timeStamp;
-    connections[id] = resObj;
+    console.log(' --> is in connections');
   }
+
+  res.sseSetup();
+  res.sseSend(RETRY_INTERVAL, "registered^" + id);
+  resObj['registered-ts'] = timeStamp;
+  connections[id] = resObj;
 });
 
 app.get('/disconnect-registrant/:id', function(req,res){
   let id = req.params.id;
+  console.log('in disconnect-registrant, id: ' + id);
   if (id in connections) {
-    removeQueue[id] = connections[id];
     delete connections[id];
+    console.log(' --> deleted: ' + id);
     asyncNotifyListenersChanged();
   }
+
+  sendResponse(res, 'ok');
 });
 
 app.get('/testme', function(req, res) {
