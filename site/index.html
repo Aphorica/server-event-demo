@@ -23,7 +23,7 @@
   <h1>Push the button, Max!!</h1>
   <input placeholder="Enter name" id="name" type="text" aria-label="Name"/>
   <br/><br/>
-  <div><button id="pushme">Submit!</button><button id="disconnect">Stop listening</button></div>
+  <div><button id="submit">Submit!</button><button id="disconnect">Stop listening</button></div>
   <br/>
   <table id="message-table">
     <tr><th>Message:</th><td id="message">Push the button...</td></tr>
@@ -37,16 +37,16 @@
   <br/>
   <button id="clear-registrants">Clear Registrants</button>
   <button id="trigger-cleanup">Trigger Cleanup</button><br/><br/>
-  <button id="trigger-server-response">Trigger Server Response</button>
+  <button id="trigger-server-response">Trigger Server Response</button><br/><br/>
 </body>
 <script src="./jquery-2.1.4.min.js"></script>
 <script src="./axios.min.js"></script>
 <script>
   let SSESource = null;
   let myID;
-  const APPURL = 'http://localhost:3000';
+  const APPURL = 'http://nebula.local:3000';
 
-  $("#pushme").on('click', function(evt) {
+  $("#submit").on('click', function(evt) {
     let name = $('#name').val();
     if (name.length === 0) {
       alert("Need a name to start...");
@@ -75,8 +75,13 @@
 
     console.log('in disconnect, closing SSESource');
     SSESource.close();
-    SSESourceClosed();      // no event on close --
-                            // force response
+    axios.get(APPURL + '/disconnect-registrant/' + myID)
+    .then(function(rsp){
+      $('#message').text('Removal pending');
+    })
+    .catch(function(err){
+      console.log('Error disconnecting');
+    });
   });
 
   $("#clear-registrants").on('click', function(evt){
@@ -93,6 +98,7 @@
     axios.get(APPURL + '/trigger-cleanup')
     .then(function(){
       console.log('Cleanup ok');
+      fetchRegisteredListeners();
     })
     .catch(function(err){
       console.log('Error in cleanup: ' + err);
@@ -103,11 +109,16 @@
     axios.get(APPURL + '/trigger-server-response/' + myID)
     .then(function(){
       console.log('Triggered Server Reponse ok');
+      setTimeout(fetchRegisteredListeners, 0);
     })
     .catch(function(err){
       console.log('Error in trigger-server-response: ' + err);
     })
   });
+
+  function makeTimeString(timeStamp) {
+    return new Date(timeStamp).toTimeString().substr(0, 8);
+  }
 
   function doSubmit(){
     console.log('in doSubmit: ' + myID);
@@ -129,18 +140,7 @@
 
   function SSESourceClosed() {
     $("#state").text("Disconnected"); 
-    axios.get(APPURL + '/disconnect-registrant/' + myID)
-    .then(function(rsp){
-      $("#message").text(rsp.data);
-      SSESource = null;
-      myID = null;
-    })
-    .then(function(rsp){
-      fetchRegisteredListeners();
-    })
-    .catch(function(err) {
-      console.log('disconnect error: ' + err);
-    }); 
+    fetchRegisteredListeners();
   };
 
   function getNotificationData(_data) {
@@ -173,17 +173,6 @@
     });
   }
 
-  function toHMS(duration) {
-    let hours, mins, secs;
-    duration /= 1000;
-    hours = Math.floor(duration / 3600);
-    duration -= hours * 3600;
-    mins = Math.floor(duration / 60);
-    duration -= mins * 60;
-    secs = Math.floor(duration / 60);
-    return hours + 'h' + mins + 'm' + secs + 's';
-  }
-
   function renderRegisteredListeners(data) {
     let tableContents = '<tbody>\n';
     let idKeys = Object.keys(data), idKey, startTime;
@@ -194,9 +183,7 @@
             '<tr><td>' + 
             idKey + 
             '</td><td>' + 
-            new Date(data[idKey].start).toTimeString().substr(0,8) +
-            '</td><td>' +
-            toHMS(data[idKey].duration) +
+            makeTimeString(data[idKey]['registered-ts']) +
             '</td></tr>\n';      
     }
     tableContents += '</tbody>';
@@ -204,49 +191,63 @@
   }
 
   function registerServerListener(id) {
-    if (!!window.EventSource) {
-      SSESource = new EventSource(APPURL + '/register-listener/' + id);
-      SSESource.addEventListener('message', function(evt) {
-        let data = getNotificationData(evt.data);
+    return new Promise(function(acc,rej) {
+      if (!!window.EventSource) {
+        SSESource = new EventSource(APPURL + '/register-listener/' + id);
+        SSESource.addEventListener('message', function(evt) {
+          let data = getNotificationData(evt.data);
 
-        switch(data.response) {
-          case "listeners-changed":
-            fetchRegisteredListeners();
-            return;
+          switch(data.response) {
+            case "listeners-changed":
+              fetchRegisteredListeners();
+              return;
 
-          case "completed":
-          case "triggered":
-            if (data.info.id !== myID)
-              $("#message").text('Got reponse for someone else: ' + id);
+            case "removed":
+              console.log(' --> entry removed...');
+              SSESource.close();
+              SSESourceClosed();
+              return;
 
-            $("#response").text('Received response: ' +
-              new Date(data.info.timestamp).toTimeString().substr(0,8));
-            break;
+            case "completed":
+            case "triggered":
+              if (data.info.id !== myID)
+                $("#message").text('Got reponse for someone else: ' + id);
 
-          case "registered":
-            $("#message").text("Registered: " + data.info);
-            break;
+              $("#response").text('Received response: ' +
+                new Date(data.info.timestamp).toTimeString().substr(0,8));
+              break;
 
-          default:
-            $("#message").text("Unrecognized: " + data.response);
-        }
-      });
+            case "registered":
+              $("#message").text("Registered: " + data.info);
+              fetchRegisteredListeners();
+              break;
 
-      SSESource.addEventListener('open', function(evt) {
-        $("#state").text("Connected");
-        fetchRegisteredListeners();
-      });
+            default:
+              $("#message").text("Unrecognized: " + data.response);
+          }
+        });
 
-      SSESource.addEventListener('error', function(evt){
-        if (evt.target.readyState === EventSource.CLOSED) {
-          SSESourceClosed(); 
-        } else if (evt.target.readyState === EventSource.CONNECTING) {
-          $("#state").text("Connecting...");
-        }
-      });
-    } else {
-      console.log("Your browser doesn't support SSE")
-    }
+        SSESource.addEventListener('open', function(evt) {
+          $("#state").text("Connected");
+          fetchRegisteredListeners();
+        });
+
+        SSESource.addEventListener('error', function(evt){
+          if (evt.target.readyState === EventSource.CLOSED) {
+            console.log(' --> got EventSource.CLOSED event');
+            SSESourceClosed(); 
+          } else if (evt.target.readyState === EventSource.CONNECTING) {
+            $("#state").text("Connecting...");
+          }
+        });
+
+        acc(true);
+
+      } else {
+        console.log("Your browser doesn't support SSE")
+        rej(false);
+      }
+    });
   }
 
   fetchRegisteredListeners();

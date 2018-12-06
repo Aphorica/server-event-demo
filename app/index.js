@@ -3,13 +3,12 @@ const sse = require('./sse');
 
 const app = express();
 
-const DEFAULT_DURATION = 86400000;
-          // 24 hrs - if we don't hear from you before then,
-          // we'll assume you're gone
-const CLEANUP_INTERVAL = 30000;
+const RETRY_INTERVAL = 10000; // 120000;
+const CLEANUP_INTERVAL = 2500; // 30000;
+const CLEANUP_STALE_ENTRIES_THRESHOLD = 86400000;
           // 5 mins - check to delete cleanups
 
-let connections = {};
+let connections = {}, removeQueue = {};
 let cleanupTimerID = null;
 
 app.use(sse);
@@ -21,7 +20,8 @@ function sendResponse(res, msg, code) {
   res.writeHead(code, {
     'Content-Type': 'text/plain',
     'Cache-Control': 'no-cache',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Content-Length': msg.length
   });
 
   res.end(msg);
@@ -29,12 +29,12 @@ function sendResponse(res, msg, code) {
 
 function asyncNotifyListenersChanged() {   
   return new Promise(function(acc, rej) {
-    if (connections.length === 0)
-      rej(false);
+    let sseRsps = Object.values(connections);
+    if (sseRsps.length === 0)
+      acc(true);
 
     else {
       let msg = "listeners-changed"; 
-      let sseRsps = Object.values(connections);
                   // work on a copy
 
       function notifyListenersChanged(ix) {
@@ -44,8 +44,8 @@ function asyncNotifyListenersChanged() {
             break;
           }
 
-          if (sseRsps[ix].duration !== 0) {
-            sseRsps[ix].notifyRes.sseSend(msg);
+          if (sseRsps[ix]['registered-ts'] !== 0) {
+            sseRsps[ix].notifyRes.sseSend(RETRY_INTERVAL, msg);
             break;
           }
           ++ix;
@@ -61,39 +61,70 @@ function asyncNotifyListenersChanged() {
 
 function asyncCleanupRegistered() {
   return new Promise(function(acc, rej) {
-    if (connections.length === 0)
+    console.log('in asyncCleanupRegistered');
+    let allEntries = Object.assign(
+              Object.assign({}, removeQueue), connections);
+    let idKeys = Object.keys(allEntries);
+                    // pull a copy of the keys
+
+    if (idKeys.length === 0) {
+      console.log(' --> no connections (no keys)')
       acc(true); // nothing to do
+    }
     else {
       function cleanupRegistered(ix) {
-        if (ix >= connections.length)
+        if (ix >= idKeys.length)
           acc(true);
 
         else {
-          let idKeys = Object.keys(ix), idKey, sseRsp;
+          let idKey, sseRsp, duration;
+
           while (true) {
+                  // loop through the keys
+
             if (ix >= idKeys.length) {
               acc(true);
               break;
                     // done
             }
-            idKey = idKeys[ix];
-            sseRsp = connections[idKey];
-            if (!sseRsp.busy) {
-                      // leave the busy ones alone
 
-              if ((date.now() - sseRsp.start) > sseRsp.duration)
+            idKey = idKeys[ix];
+            if (!allEntries[idKey])
+              continue;
+                    // got deleted in between calls -
+                    // go on to next without exiting
+
+            sseRsp = allEntries[idKey];
+            duration = Date.now() - sseRsp['registered-ts'];
+            console.log(' --> duration for id: ' + idKey + ', registered-ts: ' +
+                        sseRsp['registered-ts'] + ' = ' +
+                        duration/1000);
+            if (idKey in removeQueue) {
+              if (duration > CLEANUP_STALE_ENTRIES_THRESHOLD) {
+                console.log(' --> cleaning stale entry, id: ' + idKey);
+                delete removeQueue[idKey];
+              }
+
+            } else {
+              if (duration > RETRY_INTERVAL + 1000) {
+                console.log(' --> moving: ' + idKey + ' to removeQueue');
+                removeQueue[idKey] = sseRsp;
                 delete connections[idKey];
-                      // only calc (and optionally delete)
-                      // once per iteration
-              break;
+                            // move to removeQueue
+                break;
+              }
             }
+                    // else loop around for the next
+            ++ix;
           }
           
           setImmediate(cleanupRegistered.bind(null, ++ix));
+                    // trigger the next iteration
         }
       }
 
       cleanupRegistered(0);
+                    // initial call
     }
   });
 }
@@ -113,10 +144,11 @@ function asyncNotifyCompletions(name) {
 
         else {
           let idKey = idKeys[ix];
-          if ((idKey in connections) && idKey.startsWith(name))
-            connections[idKey].notifyRes.sseSend( "completed^" +
+          if ((idKey in connections) && idKey.startsWith(name)) {
+            connections[idKey].notifyRes.sseSend(RETRY_INTERVAL, "completed^" +
               JSON.stringify({"timestamp": Date.now(), "id":idKey}));
                     // notify target listeners for specific event
+          }
           
           setImmediate(notifyCompletions.bind(null, ++ix));
         }
@@ -144,12 +176,6 @@ app.get('/submitted/:id', function(req, res) {
   let id = req.params.id;
   console.log('server in submitted: ' + id);
   if (id in connections) {
-    connections[id].start = Date.now();
-              // reset the timeout start
-
-    if (req.params.duration)
-      connections[id].duration = req.params.duration;
-
     connections[id].singleShot = req.params.singleShot || false;
 
     setTimeout(function(){
@@ -174,25 +200,29 @@ app.get('/trigger-server-response/:id', function(req,res) {
   console.log('in trigger-server-response: ' +  id);
 
   if (id in connections) {
-    connections[id].notifyRes.sseSend( "triggered^" +
+    connections[id].notifyRes.sseSend(RETRY_INTERVAL, "triggered^" +
       JSON.stringify({"timestamp": Date.now(), "id":id}));
   }
 
+  sendResponse(res,'ok');
+});
+
+app.get('/trigger-cleanup', function(req,res) {
+  setTimeout(asyncCleanupRegistered);
   sendResponse(res, 'ok');
 });
 
 app.get('/list-registrants', function(req, res) {
   let idKeys = Object.keys(connections);
-  let rspData = {};
+  let rspData = {}, tmpObj;
   
   for (let ix = 0; ix < idKeys.length; ++ix) {
     let idKey = idKeys[ix];
 
-    if (connections[idKey] && connections[idKey].duration !== 0) {
-      rspData[idKey] = {
-        start: connections[idKey].start,
-        duration: connections[idKey].duration
-      };
+    if (connections[idKey] && connections[idKey]['registered-ts'] !== 0) {
+      tmpObj = Object.assign({}, connections[idKey]);
+      delete tmpObj.notifyRes;
+      rspData[idKey] = tmpObj;
     }
   }
 
@@ -212,23 +242,36 @@ app.get('/clear-registrants', function(req, res) {
  */
 app.get('/register-listener/:id', function(req, res) {
   let id = req.params.id,
-      resObj = id in connections? connections[id] : 
-               { start:Date.now(), duration: DEFAULT_DURATION} ;
-  res.sseSetup();
-  res.sseSend("registered^" + id);
-  
-  resObj['notifyRes'] = res;
-  connections[id] = resObj;
-  console.log('Server registered id: ' + id);
+      resObj = id in connections? connections[id] : {},
+      timeStamp = Date.now();
+
+  console.log('in register-listener, id: ' + id);
+
+  if (id in removeQueue) {
+    // marked for deletion
+    removeQueue[id].notifyRes.sseSend(0, 'removed');
+    setTimeout(function(){delete removeQueue[id]}, 1000);
+    console.log(' --> deleted from removeQueue: ' + id);
+  } else {
+    if (!(id in connections)) {
+      resObj['notifyRes'] = res;
+      console.log(' --> server registered id: ' + id);
+    } else {
+      console.log(' --> is in connections');
+    }
+
+    res.sseSetup();
+    res.sseSend(RETRY_INTERVAL, "registered^" + id);
+    resObj['registered-ts'] = timeStamp;
+    connections[id] = resObj;
+  }
 });
 
 app.get('/disconnect-registrant/:id', function(req,res){
   let id = req.params.id;
   if (id in connections) {
-    connections[id].duration = 0;
-              // mark for deletion on next cleanup loop
-
-    sendResponse(res, 'Server disconnected: ' + id)
+    removeQueue[id] = connections[id];
+    delete connections[id];
     asyncNotifyListenersChanged();
   }
 });
@@ -252,6 +295,7 @@ function startCleanupInterval() {
       cleanupTimerID = 0;
       asyncCleanupRegistered()
       .then(function(rsp){
+        setTimeout(asyncNotifyListenersChanged);
         if (cleanupTimerID === 0)
           setImmediate(doCleanup);
       })
