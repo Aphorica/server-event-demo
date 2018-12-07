@@ -54,7 +54,7 @@
     }
     console.log('Started for: ' + name);
     if (!SSESource) {
-      axios.get(APPURL + '/make-id/' + name)
+      axios.get(APPURL + '/sse-make-id/' + name)
       .then(function(rsp) {
         myID = rsp.data;
         console.log(' --> set myID: ' + myID);
@@ -75,7 +75,7 @@
 
     console.log('in disconnect, closing SSESource');
     SSESource.close();
-    axios.get(APPURL + '/disconnect-registrant/' + myID)
+    axios.get(APPURL + '/sse-disconnect-registrant/' + myID)
     .then(function(rsp){
       $('#message').text('Item removed');
      SSESourceClosed();
@@ -86,35 +86,13 @@
   });
 
   $("#clear-registrants").on('click', function(evt){
-    axios.get(APPURL + '/clear-registrants')
+    axios.get(APPURL + '/sse-clear-registrants')
     .then(function(rsp){
       fetchRegisteredListeners();
     })
     .catch(function(err){
       console.log('Error in clear-registrants: ' + err);
     });
-  });
-
-  $("#trigger-cleanup").on('click', function(evt){
-    axios.get(APPURL + '/trigger-cleanup')
-    .then(function(){
-      console.log('Cleanup ok');
-      fetchRegisteredListeners();
-    })
-    .catch(function(err){
-      console.log('Error in cleanup: ' + err);
-    })
-  });
-
-  $("#trigger-server-response").on('click', function(evt){
-    axios.get(APPURL + '/trigger-server-response/' + myID)
-    .then(function(){
-      console.log('Triggered Server Reponse ok');
-      setTimeout(fetchRegisteredListeners, 0);
-    })
-    .catch(function(err){
-      console.log('Error in trigger-server-response: ' + err);
-    })
   });
 
   function makeTimeString(timeStamp) {
@@ -182,7 +160,7 @@
   }
 
   function fetchRegisteredListeners() {
-    axios.get(APPURL + '/list-registrants')
+    axios.get(APPURL + '/sse-list-registrants')
     .then(function(rsp){
       renderRegisteredListeners(rsp.data);
     })
@@ -211,7 +189,7 @@
   function registerServerListener(id) {
     return new Promise(function(acc,rej) {
       if (!!window.EventSource) {
-        SSESource = new EventSource(APPURL + '/register-listener/' + id);
+        SSESource = new EventSource(APPURL + '/sse-register-listener/' + id);
         SSESource.addEventListener('message', function(evt) {
           let data = getNotificationData(evt.data);
 

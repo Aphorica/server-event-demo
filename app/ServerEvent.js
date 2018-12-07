@@ -48,6 +48,35 @@ function sseHandler(req, res, next) {
 }
 
 serverEventRouter.use(sseHandler);
+
+serverEventRouter.get('/sse-list-registrants', function(req, res) {
+  res.send(ServerEventMgr.getListenersJSON());
+});
+
+serverEventRouter.get('/sse-clear-registrants', async function(req, res) {
+  await ServerEventMgr.unregisterAllListeners();
+  res.send("ok");
+});
+
+serverEventRouter.get('/sse-make-id/:name', function(req,rsp) {
+  let id = ServerEventMgr.getUniqueID(req.params.name);
+  rsp.send(id);
+});
+
+/**
+ * register a listener
+ */
+serverEventRouter.get('/sse-register-listener/:id', function(req, res) {
+  let id = req.params.id;
+  ServerEventMgr.registerListener(id, res);
+          // res delegated to the ServerEventMgr -- 
+          // don't respond here.
+});
+
+serverEventRouter.get('/sse-disconnect-registrant/:id', function(req,res){
+  ServerEventMgr.unregisterListener(req.params.id);
+  res.send('ok');
+});
 //////////////////////////////////////////////////////////////////////
 //
 // end sse funcs
