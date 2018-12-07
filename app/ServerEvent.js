@@ -9,6 +9,7 @@ const CLEANUP_STALE_ENTRIES_THRESHOLD = 43200000;
 let connections = {};
 let cleanupTimerID = -1;
 let notifyListenersChangedFlag = false;
+let handlerPrefix = '/sse/';
 
 let verbose = false;
 
@@ -49,16 +50,16 @@ function sseHandler(req, res, next) {
 
 serverEventRouter.use(sseHandler);
 
-serverEventRouter.get('/sse-list-registrants', function(req, res) {
+serverEventRouter.get(handlerPrefix + 'list-registrants', function(req, res) {
   res.send(ServerEventMgr.getListenersJSON());
 });
 
-serverEventRouter.get('/sse-clear-registrants', async function(req, res) {
+serverEventRouter.get(handlerPrefix + 'clear-registrants', async function(req, res) {
   await ServerEventMgr.unregisterAllListeners();
   res.send("ok");
 });
 
-serverEventRouter.get('/sse-make-id/:name', function(req,rsp) {
+serverEventRouter.get(handlerPrefix + 'make-id/:name', function(req,rsp) {
   let id = ServerEventMgr.getUniqueID(req.params.name);
   rsp.send(id);
 });
@@ -66,14 +67,14 @@ serverEventRouter.get('/sse-make-id/:name', function(req,rsp) {
 /**
  * register a listener
  */
-serverEventRouter.get('/sse-register-listener/:id', function(req, res) {
+serverEventRouter.get(handlerPrefix + 'register-listener/:id', function(req, res) {
   let id = req.params.id;
   ServerEventMgr.registerListener(id, res);
           // res delegated to the ServerEventMgr -- 
           // don't respond here.
 });
 
-serverEventRouter.get('/sse-disconnect-registrant/:id', function(req,res){
+serverEventRouter.get(handlerPrefix + 'disconnect-registrant/:id', function(req,res){
   ServerEventMgr.unregisterListener(req.params.id);
   res.send('ok');
 });

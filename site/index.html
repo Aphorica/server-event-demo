@@ -54,7 +54,7 @@
     }
     console.log('Started for: ' + name);
     if (!SSESource) {
-      axios.get(APPURL + '/sse-make-id/' + name)
+      axios.get(APPURL + '/sse/make-id/' + name)
       .then(function(rsp) {
         myID = rsp.data;
         console.log(' --> set myID: ' + myID);
@@ -75,7 +75,7 @@
 
     console.log('in disconnect, closing SSESource');
     SSESource.close();
-    axios.get(APPURL + '/sse-disconnect-registrant/' + myID)
+    axios.get(APPURL + '/sse/disconnect-registrant/' + myID)
     .then(function(rsp){
       $('#message').text('Item removed');
      SSESourceClosed();
@@ -86,7 +86,7 @@
   });
 
   $("#clear-registrants").on('click', function(evt){
-    axios.get(APPURL + '/sse-clear-registrants')
+    axios.get(APPURL + '/sse/clear-registrants')
     .then(function(rsp){
       fetchRegisteredListeners();
     })
@@ -160,7 +160,7 @@
   }
 
   function fetchRegisteredListeners() {
-    axios.get(APPURL + '/sse-list-registrants')
+    axios.get(APPURL + '/sse/list-registrants')
     .then(function(rsp){
       renderRegisteredListeners(rsp.data);
     })
@@ -189,7 +189,7 @@
   function registerServerListener(id) {
     return new Promise(function(acc,rej) {
       if (!!window.EventSource) {
-        SSESource = new EventSource(APPURL + '/sse-register-listener/' + id);
+        SSESource = new EventSource(APPURL + '/sse/register-listener/' + id);
         SSESource.addEventListener('message', function(evt) {
           let data = getNotificationData(evt.data);
 
