@@ -183,7 +183,7 @@ function stopCleanupInterval() {
 //
 ///////////////////////////////////////////////////////////////////
 
-let ServerEvent = {
+let ServerEventMgr = {
   unregisterAllListeners() {
     stopCleanupInterval();
     connections = {};
@@ -205,6 +205,8 @@ let ServerEvent = {
     do {
       id = [name, Math.random().toString(36).substring(7)].join('_');
     } while (id in connections);
+
+    return id;
   },
   registerListener(id, res) {
     resObj = id in connections? connections[id] : {},
@@ -283,4 +285,4 @@ let ServerEvent = {
   }
 };
 
-module.exports = {ServerEvent, serverEventRouter};
+module.exports = {ServerEventMgr, serverEventRouter};

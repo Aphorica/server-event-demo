@@ -123,9 +123,10 @@
 
   function doSubmit(){
     console.log('in doSubmit: ' + myID);
-    axios.get(APPURL + "/submitted/" + myID)
+    axios.put(APPURL + ["/submit-task", myID, "timeout-test"].join('/'))
     .then(function(rsp) {
       $("#message").text("Submitted for: " + myID);
+      $("#response").text("(none)");
     })
     .catch(function(err) {
       if (err.response.status === 404) {
@@ -220,12 +221,11 @@
               return;
 
             case "completed":
-            case "triggered":
               if (data.info.id !== myID)
-                $("#message").text('Got reponse for someone else: ' + id);
+                $("#message").text('Got reponse for someone else: ' + id +
+                                   ', taskid: ' + data.info.taskid);
 
-              $("#response").text('Received response: ' +
-                new Date(data.info.timestamp).toTimeString().substr(0,8));
+              $("#response").text('Task completed: ' + data.info.taskid);
               break;
 
             case "registered":
