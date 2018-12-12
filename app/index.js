@@ -1,5 +1,5 @@
 const express = require('express');
-const {ServerEventMgr,serverEventRouter} = require('./ServerEvent.js');
+const ServerEventMgr = require('./ServerEvent.js');
 const app = express();
 
 var allowCrossDomain = function(req, res, next) {
@@ -15,7 +15,7 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 app.use(allowCrossDomain);
-app.use(serverEventRouter);
+app.use(ServerEventMgr.createRouter('/sse-'));
 
 ServerEventMgr.setNotifyListenersChanged(true);
 ServerEventMgr.setVerbose(true);

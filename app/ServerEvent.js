@@ -1,5 +1,3 @@
-let express = require('express');
-let serverEventRouter = express.Router();
 
 const RETRY_INTERVAL = 120000;
 const CLEANUP_INTERVAL = 3600000;
@@ -9,7 +7,7 @@ const CLEANUP_STALE_ENTRIES_THRESHOLD = 43200000;
 let connections = {};
 let cleanupTimerID = -1;
 let notifyListenersChangedFlag = false;
-let handlerPrefix = '/sse/';
+let defaultPrefix = '/sse/';
 
 let verbose = false;
 
@@ -48,36 +46,7 @@ function sseHandler(req, res, next) {
   next();
 }
 
-serverEventRouter.use(sseHandler);
 
-serverEventRouter.get(handlerPrefix + 'list-registrants', function(req, res) {
-  res.send(ServerEventMgr.getListenersJSON());
-});
-
-serverEventRouter.get(handlerPrefix + 'clear-registrants', async function(req, res) {
-  await ServerEventMgr.unregisterAllListeners();
-  res.send("ok");
-});
-
-serverEventRouter.get(handlerPrefix + 'make-id/:name', function(req,rsp) {
-  let id = ServerEventMgr.getUniqueID(req.params.name);
-  rsp.send(id);
-});
-
-/**
- * register a listener
- */
-serverEventRouter.get(handlerPrefix + 'register-listener/:id', function(req, res) {
-  let id = req.params.id;
-  ServerEventMgr.registerListener(id, res);
-          // res delegated to the ServerEventMgr -- 
-          // don't respond here.
-});
-
-serverEventRouter.get(handlerPrefix + 'disconnect-registrant/:id', function(req,res){
-  ServerEventMgr.unregisterListener(req.params.id);
-  res.send('ok');
-});
 //////////////////////////////////////////////////////////////////////
 //
 // end sse funcs
@@ -214,6 +183,47 @@ function stopCleanupInterval() {
 ///////////////////////////////////////////////////////////////////
 
 let ServerEventMgr = {
+  createRouter(prefix) {
+    let express = require('express');
+    let serverEventRouter = express.Router();
+
+    if (prefix === undefined) {
+      prefix = defaultPrefix;
+    }
+
+    serverEventRouter.use(sseHandler);
+
+    serverEventRouter.get(prefix + 'list-registrants', function(req, res) {
+      res.send(ServerEventMgr.getListenersJSON());
+    });
+    
+    serverEventRouter.get(prefix + 'clear-registrants', async function(req, res) {
+      await ServerEventMgr.unregisterAllListeners();
+      res.send("ok");
+    });
+    
+    serverEventRouter.get(prefix + 'make-id/:name', function(req,rsp) {
+      let id = ServerEventMgr.getUniqueID(req.params.name);
+      rsp.send(id);
+    });
+    
+    /**
+     * register a listener
+     */
+    serverEventRouter.get(prefix + 'register-listener/:id', function(req, res) {
+      let id = req.params.id;
+      ServerEventMgr.registerListener(id, res);
+              // res delegated to the ServerEventMgr -- 
+              // don't respond here.
+    });
+    
+    serverEventRouter.get(prefix + 'disconnect-registrant/:id', function(req,res){
+      ServerEventMgr.unregisterListener(req.params.id);
+      res.send('ok');
+    });
+
+    return serverEventRouter;
+  },
   unregisterAllListeners() {
     stopCleanupInterval();
     connections = {};
@@ -315,4 +325,4 @@ let ServerEventMgr = {
   }
 };
 
-module.exports = {ServerEventMgr, serverEventRouter};
+module.exports = ServerEventMgr;
