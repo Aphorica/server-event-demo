@@ -1,5 +1,5 @@
 const express = require('express');
-const ServerEventMgr = require('./ServerEvent.js');
+const ServerEventMgr = require('@aph/server-event');
 const app = express();
 
 var allowCrossDomain = function(req, res, next) {
