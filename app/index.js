@@ -1,5 +1,5 @@
 const express = require('express');
-const ServerEventMgr = require('@aph/server-event');
+const ServerEventMgr = require('@aph/server-event-mgr');
 const app = express();
 
 var allowCrossDomain = function(req, res, next) {
@@ -15,15 +15,20 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 app.use(allowCrossDomain);
-app.use(ServerEventMgr.createRouter('/sse-'));
+app.use(ServerEventMgr.createRouter());
 
 ServerEventMgr.setNotifyListenersChanged(true);
 ServerEventMgr.setVerbose(true);
 
-app.put('/submit-task/:id/:taskid', function(req, res) {
+//
+// Must implement. The prefix isn't really necessary, but nice for consistency.
+//
+app.put(ServerEventMgr.prefix + 'submit-task/:id/:taskid', function(req, res) {
   let id = req.params.id, taskid = req.params.taskid;
   if (ServerEventMgr.isRegistered(id)) {
-    setTimeout(async ()=>{ await ServerEventMgr.notifyCompletions(id, taskid)}, 5000);
+    setTimeout(async ()=>{
+      await ServerEventMgr.notifyCompletions(id, taskid);
+    }, 5000);
     res.send("ok")
   }
   else
