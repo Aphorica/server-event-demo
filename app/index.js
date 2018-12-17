@@ -3,15 +3,20 @@ const ServerEventMgr = require('@aph/server-event-mgr');
 const app = express();
 
 var allowCrossDomain = function(req, res, next) {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Content-Length, X-Requested-With');
-  // intercept OPTIONS method
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(204);
-  } else {
-    next();
+  console.log('allowXDomain: ' + req.method +
+  ' ' + req.path);
+  if (req.path.indexOf('/register-listener/') === -1) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Content-Length, X-Requested-With');
+    // intercept OPTIONS method
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
   }
+  
+  next();
 };
 
 app.use(allowCrossDomain);
