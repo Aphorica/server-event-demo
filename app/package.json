@@ -4,7 +4,6 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@aph/server-event-mgr": "link:.yalc/@aph/server-event-mgr",
     "express": "^4.16.4"
   }
 }
