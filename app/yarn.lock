@@ -2,9 +2,8 @@
 # yarn lockfile v1
 
 
-"@aph/server-event-mgr@link:.yalc/@aph/server-event-mgr":
-  version "0.0.0"
-  uid ""
+"@aph/server-event-mgr@file:.yalc/@aph/server-event-mgr":
+  version "0.1.0-50936b96"
 
 accepts@~1.3.5:
   version "1.3.5"
