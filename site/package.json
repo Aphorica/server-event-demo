@@ -7,7 +7,7 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
-    "@aph/server-event-client": "file:.yalc/@aph/server-event-client",
+    "@aphorica/server-event-client": "^0.1.0",
     "axios": "^0.18.0",
     "vue": "^2.5.17"
   },
