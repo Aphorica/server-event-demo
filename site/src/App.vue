@@ -5,8 +5,10 @@
         v-model="name" type="text" aria-label="Name"/>
     <br/><br/>
     <div>
-      <button @click="submitClicked">Submit!</button>
-      <button @click="disconnectClicked">Stop listening</button>
+      <button @click="submitClicked"
+              :disabled="name.length === 0">Submit!</button>
+      <button @click="disconnectClicked"
+              :disabled="inactive">Stop listening</button>
     </div>
     <br/>
     <table id="message-table">
@@ -27,7 +29,8 @@
     <br/>
     <button @click="clearRegistrantsClicked">Clear Registrants</button>
     <button @click="triggerCleanupClicked">Trigger Cleanup</button><br/><br/>
-    <button @click="triggerServerResponseClicked">Trigger Server Response</button>
+    <button @click="triggerServerResponseClicked"
+            :disabled="inactive">Trigger Server Response</button>
   </div>
 </template>
 <style>
@@ -74,9 +77,19 @@ export default {
       }
 
       else {
-        this.sseClient.submitTask('timeout');
-        this.message = "Submitted for: " + this.sseClient.myID;
-        this.response = "(none)";
+//        let intvl = setInterval(()=>{
+//          if (this.sseClient.readyState === EventSource.OPEN)
+//            clearInterval(intvl);
+//        }, 100);
+
+        let status = await this.sseClient.submitTask('timeout_task');
+        if (status) {
+          this.message = "Submitted for: " + this.sseClient.myID;
+          this.response = "(none)";
+        } else {
+          this.message = "Submission failed!";
+          this.response = "Error!";
+        }
       }
     },
     disconnectClicked() {
@@ -98,9 +111,6 @@ export default {
              '</td><td>' + 
              this.makeTimeString(this.registrants[idKey]['registered-ts']) +
              '</td>';      
-    },
-    notImplemented() {
-      alert("Not implemented...");
     },
     //
     // beg sse callbacks
@@ -143,6 +153,11 @@ export default {
     },
     async fetchRegistrants() {
       this.registrants = await this.sseClient.fetchRegistrants();
+    }
+  },
+  computed: {
+    inactive: function() {
+      return this.sseClient === null;
     }
   }
 }
