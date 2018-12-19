@@ -53,7 +53,7 @@ import ServerEventClientFactory from '@aphorica/server-event-client';
 export default {
   name: 'app',
   data: function() { return {
-    APPURL: "http://nebula.local:3000",
+    APPURL: "http://localhost:3000",
     sseClient: null,
     name: "",
     message: "Push the button...",
