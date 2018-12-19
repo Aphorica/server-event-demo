@@ -1,5 +1,5 @@
 const express = require('express');
-const ServerEventMgr = require('@aph/server-event-mgr');
+const ServerEventMgr = require('@aphorica/server-event-mgr');
 const app = express();
 
 var allowCrossDomain = function(req, res, next) {

@@ -48,7 +48,7 @@
   button:focus {outline:0;}
 </style>
 <script>
-import ServerEventClientFactory from '@aph/server-event-client';
+import ServerEventClientFactory from '@aphorica/server-event-client';
 
 export default {
   name: 'app',
