@@ -2,8 +2,15 @@ const express = require('express');
 const ServerEventMgr = require('@aphorica/server-event-mgr');
 const app = express();
 
+const VERBOSE = true;
+
+function log(str) {
+  if (VERBOSE)
+    console.log(str);
+}
+
 var allowCrossDomain = function(req, res, next) {
-  console.log('allowXDomain: ' + req.method +
+  log('allowXDomain: ' + req.method +
   ' ' + req.path);
   if (req.path.indexOf('/register-listener/') === -1) {
     res.header('Access-Control-Allow-Origin', '*');
@@ -23,13 +30,14 @@ app.use(allowCrossDomain);
 app.use(ServerEventMgr.createRouter());
 
 ServerEventMgr.setNotifyListenersChanged(true);
-ServerEventMgr.setVerbose(true);
+ServerEventMgr.setVerbose(VERBOSE);
 
 //
 // Must implement. The prefix isn't really necessary, but nice for consistency.
 //
 app.put(ServerEventMgr.prefix + 'submit-task/:id/:taskid', function(req, res) {
   let id = req.params.id, taskid = req.params.taskid;
+  log('app:submit-task, id: ' + id + ', taskid:' + taskid);
   if (ServerEventMgr.isRegistered(id)) {
     setTimeout(async ()=>{
       await ServerEventMgr.notifyCompletions(id, taskid);
