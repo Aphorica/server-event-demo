@@ -3,10 +3,10 @@
 Demos per-user (browser) server-event action using the following
 packages:
 
-- @aph/server-event-client - a client-side package to instantiate
+- [@aphorica/server-event-client][1] - a client-side package to instantiate
   an _EventSource_ object and initiate and manage server-side events.
 
-- @aph/server-event-mgr - a server-side package to register, maintain,
+- [@aphorica/server-event-mgr][2] - a server-side package to register, maintain,
   and invoke server-side notifications.
 
 ## Caveats
@@ -93,3 +93,5 @@ If using _yalc_, when you're ready to commit, you need to clean the _yalc_ cruft
 It can be a bit difficult keeping everything straight.  I open an IDE in each of the _./site_ and _./app_ directories, as well as each of the module directories, with a terminal window in each, as well as a terminal window in the root demo directory.
 
 A large monitor/multiple monitors helps.
+[1]:https://www.npmjs.com/package/@aphorica/server-event-client
+[2]:https://www.npmjs.com/package/@aphorica/server-event-mgr
