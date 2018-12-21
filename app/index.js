@@ -3,6 +3,7 @@ const ServerEventMgr = require('@aphorica/server-event-mgr');
 const app = express();
 
 const VERBOSE = true;
+let intervalID = -1;
 
 function log(str) {
   if (VERBOSE)
@@ -53,19 +54,24 @@ app.put(ServerEventMgr.prefix + 'listen/:id/:listenkey', function(req,res) {
   let id = req.params.id, listenKey = req.params['listenkey'];
   log('app:listen, id: ' + id + ', listenKey: ' + listenKey);
   if (ServerEventMgr.isRegistered(id)) {
+    let ok = true;
     switch(listenKey) {
       case 'listeners-changed':
         ServerEventMgr.listenersChangedKey = listenKey;
         break;
       case 'clock-tick':
-        setInterval(()=>{
-          ServerEventMgr.notifyListeners(id, listenKey);
-        }, 60000);
+        if (intervalID === -1)
+          intervalID = setInterval(()=>{
+            ServerEventMgr.notifyListeners(listenKey);
+          }, 1000);
         break;
       default:
+        ok = false;
         console.error('/listen - unrecognized listen-key: ' + listenKey);
         res.status(500).send("bad key");
     }
+    if (ok)
+      ServerEventMgr.addListenKey(id, listenKey);
     res.send("ok");
   } else {
     log(' --> not registered...');

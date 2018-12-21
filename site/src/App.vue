@@ -4,15 +4,16 @@
     <div>{{serverTick}}</div>
     <br/>
     <div>
-      <input placeholder="Enter name" 
+      <input placeholder="Enter name"
+        :disabled = "registered"
           v-model="name" type="text" aria-label="Name"/>
       <button class="name-btn" @click="nameSet"
-          :disabled="name.length === 0 || !inactive">Set</button>
+          :disabled="name.length === 0 || registered">Set</button>
     </div>
     <br/>
     <div>
       <button @click="submitClicked"
-              :disabled="inactive">Submit Task!</button>
+              :disabled="!registered">Submit Task!</button>
       <button @click="disconnectClicked"
               :disabled="inactive">Kill Task</button>
     </div>
@@ -28,7 +29,7 @@
       <tr v-for="idKey in Object.keys(registrants)"
           :key="idKey">
         <td>{{idKey}}</td>
-        <td>{{makeTimeString(registrants[idKey]['registered-ts'])}}</td>
+        <td>{{makeRegistrantLineTimeString(registrants[idKey]['registered-ts'])}}</td>
       </tr>
     </table>
     </div>
@@ -94,7 +95,7 @@ export default {
                 _this.fetchRegistrants();
                 break;
               case 'clock-tick':
-                _this.serverTick = _this.makeTimeString(Date.now());
+                _this.serverTick = _this.makeTickTimeString(Date.now());
                 break;
             }
           }
@@ -158,14 +159,10 @@ export default {
     triggerCleanupClicked() {
       this.sseTaskClient.triggerCleanup();
     },
-    makeRegistrantLine(idKey) {
-      return '<td>' + 
-             idKey + 
-             '</td><td>' + 
-             this.makeTimeString(this.registrants[idKey]['registered-ts']) +
-             '</td>';      
+    makeTickTimeString(timestamp) {
+      return new Date(timestamp).toTimeString().substring(0, 8);
     },
-    makeTimeString(timeStamp) {
+    makeRegistrantLineTimeString(timeStamp) {
       let dt = new Date(timeStamp);
       return dt.getDate() + ' ' + dt.getHours() + ':' + dt.getMinutes();
     },
@@ -182,6 +179,9 @@ export default {
   computed: {
     inactive: function() {
       return this.sseTaskClient === null;
+    },
+    registered: function() {
+      return this.sseLTClient !== null;
     }
   }
 }
