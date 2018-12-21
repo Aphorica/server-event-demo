@@ -10,8 +10,7 @@ function log(str) {
 }
 
 var allowCrossDomain = function(req, res, next) {
-  log('allowXDomain: ' + req.method +
-  ' ' + req.path);
+  log('allowXDomain: ' + req.method + ' ' + req.path);
   if (req.path.indexOf('/register-listener/') === -1) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
@@ -22,6 +21,9 @@ var allowCrossDomain = function(req, res, next) {
       return;
     }
   }
+
+  else
+    log(' --> filtered');
   
   next();
 };
@@ -29,7 +31,6 @@ var allowCrossDomain = function(req, res, next) {
 app.use(allowCrossDomain);
 app.use(ServerEventMgr.createRouter());
 
-ServerEventMgr.setNotifyListenersChanged(true);
 ServerEventMgr.setVerbose(VERBOSE);
 
 //
@@ -46,6 +47,30 @@ app.put(ServerEventMgr.prefix + 'submit-task/:id/:taskid', function(req, res) {
   }
   else
     res.status(404).send("not found");
+});
+
+app.put(ServerEventMgr.prefix + 'listen/:id/:listenkey', function(req,res) {
+  let id = req.params.id, listenKey = req.params['listenkey'];
+  log('app:listen, id: ' + id + ', listenKey: ' + listenKey);
+  if (ServerEventMgr.isRegistered(id)) {
+    switch(listenKey) {
+      case 'listeners-changed':
+        ServerEventMgr.listenersChangedKey = listenKey;
+        break;
+      case 'clock-tick':
+        setInterval(()=>{
+          ServerEventMgr.notifyListeners(id, listenKey);
+        }, 60000);
+        break;
+      default:
+        console.error('/listen - unrecognized listen-key: ' + listenKey);
+        res.status(500).send("bad key");
+    }
+    res.send("ok");
+  } else {
+    log(' --> not registered...');
+    res.status(404).send("not found");
+  }
 });
 
 app.get('/testme', function(req, res) {

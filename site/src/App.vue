@@ -1,14 +1,20 @@
 <template>
   <div id="app">
     <h2>Push the button, Max!!</h2>
-    <input placeholder="Enter name" 
-        v-model="name" type="text" aria-label="Name"/>
-    <br/><br/>
+    <div>{{serverTick}}</div>
+    <br/>
+    <div>
+      <input placeholder="Enter name" 
+          v-model="name" type="text" aria-label="Name"/>
+      <button class="name-btn" @click="nameSet"
+          :disabled="name.length === 0 || !inactive">Set</button>
+    </div>
+    <br/>
     <div>
       <button @click="submitClicked"
-              :disabled="name.length === 0">Submit!</button>
+              :disabled="inactive">Submit Task!</button>
       <button @click="disconnectClicked"
-              :disabled="inactive">Stop listening</button>
+              :disabled="inactive">Kill Task</button>
     </div>
     <br/>
     <table id="message-table">
@@ -36,7 +42,7 @@
 <style>
   body {font-family:Arial, Helvetica, sans-serif;
         text-align:center;}
-  div, input {font-size: 1.5em;}
+  div, input, .name-btn {font-size: 2.0rem;}
   table {font-size:1.2rem;border-collapse:collapse;}
   #message-table, #table-ctnr {width: 90%; margin:0 auto;
                                 border:thin solid darkgray}
@@ -57,34 +63,81 @@ export default {
   name: 'app',
   data: function() { return {
     APPURL: "http://localhost:3000",
-    sseClient: null,
+    sseTaskClient: null,
+    sseLTClient:null,
     name: "",
-    message: "Push the button...",
-    response: "(none)",
-    state: "(waiting)",
+    message: "",
+    response: "",
+    state: "",
+    serverTick: '00:00:00',
     adHocResponseCount: 0,
     registrants: {}
   }},
+  async mounted() {
+    this.setInitialState();
+    await this.fetchRegistrants();
+  },
+  beforeDestroy() {
+    if (this.sseLTClient !== null)
+      this.sseLTClient.disconnect();
+    if (this.sseTaskClient !== null)
+      this.sseTaskClient.disconnect();
+  },
   methods: {
-    async submitClicked(){
-      if (this.sseClient === null) {
-        this.sseClient = await ServerEventClientFactory.create(
-          this.name, this.APPURL, this);
+    async nameSet() {
+      let _this = this;
+      this.sseLTClient = await ServerEventClientFactory.create(
+        this.name, this.APPURL, {
+          sseNotify(what) {
+            switch(what) {
+              case 'listeners-changed':
+                _this.fetchRegistrants();
+                break;
+              case 'clock-tick':
+                _this.serverTick = _this.makeTimeString(Date.now());
+                break;
+            }
+          }
+        });
+                // long-term client - waits for notifications
+
+      if (this.sseLTClient === null) {
+        this.message = "!Error - could not create LT client"
       }
 
-      if (this.sseClient === null) {
-        this.message = "!Error - could not create sseCient";
+      await this.sseLTClient.listen('listeners-changed');
+      await this.sseLTClient.listen('clock-tick');
+      await this.fetchRegistrants();
+    },
+    async submitClicked(){
+      if (this.sseTaskClient === null) {
+        let _this = this;
+        this.sseTaskClient = await ServerEventClientFactory.create(
+          this.name, this.APPURL, {
+            sseTaskCompleted(taskid) {
+              _this.response = 'Task completed: ' + taskid;
+            },
+            sseAdHocResponse(){
+              _this.response = "Got Ad Hoc response - " + ++_this.adHocResponseCount;
+            },
+            sseError(id, sseState, sseStateText) {
+              _this.state = sseStateText;
+            },
+            sseClosed(){
+              _this.sseTaskClient = null;
+              _this.setInitialState();
+            }
+          });
+      }
+
+      if (this.sseTaskClient === null) {
+        this.message = "!Error - could not create Task client";
       }
 
       else {
-//        let intvl = setInterval(()=>{
-//          if (this.sseClient.readyState === EventSource.OPEN)
-//            clearInterval(intvl);
-//        }, 100);
-
-        let status = await this.sseClient.submitTask('timeout_task');
+        let status = await this.sseTaskClient.submitTask('timeout_task');
         if (status) {
-          this.message = "Submitted for: " + this.sseClient.myID;
+          this.message = "Submitted for: " + this.sseTaskClient.id;
           this.response = "(none)";
         } else {
           this.message = "Submission failed!";
@@ -93,17 +146,17 @@ export default {
       }
     },
     disconnectClicked() {
-      this.sseClient.disconnect();
+      this.sseTaskClient.disconnect();
     },
     clearRegistrantsClicked() {
-      this.sseClient.clearRegistrants();
+      this.sseTaskClient.clearRegistrants();
       this.fetchRegistrants();
     },
     triggerServerResponseClicked() {
-      this.sseClient.triggerAdHocServerResponse();
+      this.sseTaskClient.triggerAdHocServerResponse();
     },
     triggerCleanupClicked() {
-      this.sseClient.triggerCleanup();
+      this.sseTaskClient.triggerCleanup();
     },
     makeRegistrantLine(idKey) {
       return '<td>' + 
@@ -112,52 +165,23 @@ export default {
              this.makeTimeString(this.registrants[idKey]['registered-ts']) +
              '</td>';      
     },
-    //
-    // beg sse callbacks
-    //
-    sseListenersChanged() {
-      this.fetchRegistrants();
-    },
-    sseTaskCompleted(id, taskid) {
-      if (id !== this.sseClient.myID) {
-        this.message = 'Got response for someone else: ' +
-                       id + ', taskid' + taskid;
-      }
-
-      this.response = 'Task completed: ' + taskid;
-    },
-    sseRegistered(info) {
-      this.message = "Registered: " + info;
-      this.fetchRegistrants();
-    },
-    sseAdHockResponse() {
-      this.response = "Got Ad Hoc response - " + ++this.adHocResponseCount;
-    },
-    sseOpened(sseState, sseStateText) {
-      this.state = sseStateText;
-    },
-    sseError(sseState, sseStateText) {
-      this.state = sseStateText;
-    },
-    sseClosed() {
-      this.sseClient = null;
-      this.registrants = [];
-    },
-    //
-    // end sse callbacks
-    // beg utils
-    //
     makeTimeString(timeStamp) {
       let dt = new Date(timeStamp);
       return dt.getDate() + ' ' + dt.getHours() + ':' + dt.getMinutes();
     },
     async fetchRegistrants() {
-      this.registrants = await this.sseClient.fetchRegistrants();
+      if (this.sseLTClient !== null)
+        this.registrants = await this.sseLTClient.fetchRegistrants();
+    },
+    setInitialState() {
+      this.message = "Push the button...";
+      this.response = "(none)";
+      this.state = "(waiting)";
     }
   },
   computed: {
     inactive: function() {
-      return this.sseClient === null;
+      return this.sseTaskClient === null;
     }
   }
 }
