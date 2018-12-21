@@ -7,7 +7,7 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
-    "@aphorica/server-event-client": "^0.1.0",
+    "@aphorica/server-event-client": "^0.1.2",
     "axios": "^0.18.0",
     "vue": "^2.5.17"
   },

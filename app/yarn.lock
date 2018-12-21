@@ -2,8 +2,10 @@
 # yarn lockfile v1
 
 
-"@aphorica/server-event-mgr@file:.yalc/@aphorica/server-event-mgr":
-  version "0.1.0-91f5c904"
+"@aphorica/server-event-mgr@^0.1.2":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@aphorica/server-event-mgr/-/server-event-mgr-0.1.2.tgz#c4d83dd5c4d3fc838441256128d63bea632fc012"
+  integrity sha512-cJlIOW/pjI//lDiLqLPvnf45DFkcWepphPzwKMtlbWiPZDtDCVbcxIZefMxnRlf1HOnM5q3aynVTvrYNUU8duQ==
 
 accepts@~1.3.5:
   version "1.3.5"
