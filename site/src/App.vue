@@ -3,7 +3,7 @@
     <h2>Push the button, Max!!</h2>
     <div>{{serverTick}}</div>
     <br/>
-    <div>
+    <div id="name-set">
       <input placeholder="Enter name"
         :disabled = "registered"
           v-model="name" type="text" aria-label="Name"/>
@@ -11,7 +11,7 @@
           :disabled="name.length === 0 || registered">Set</button>
     </div>
     <br/>
-    <div>
+    <div class="button-row">
       <button @click="submitClicked"
               :disabled="!registered">Submit Task!</button>
       <button @click="disconnectClicked"
@@ -25,13 +25,14 @@
     </table>
     <h3>Registrants:</h3>
     <div id="table-ctnr">
-    <table>
-      <tr v-for="idKey in Object.keys(registrants)"
-          :key="idKey">
-        <td>{{idKey}}</td>
-        <td>{{makeRegistrantLineTimeString(registrants[idKey]['registered-ts'])}}</td>
-      </tr>
-    </table>
+      <div v-if="!registered"><div>(Set name to see registrants...)</div></div>
+      <table v-if="registered">
+        <tr v-for="idKey in Object.keys(registrants)"
+            :key="idKey">
+          <td>{{idKey}}</td>
+          <td>{{makeRegistrantLineTimeString(registrants[idKey]['registered-ts'])}}</td>
+        </tr>
+      </table>
     </div>
     <br/>
     <button @click="clearRegistrantsClicked">Clear Registrants</button>
@@ -43,18 +44,26 @@
 <style>
   body {font-family:Arial, Helvetica, sans-serif;
         text-align:center;}
-  div, input, .name-btn {font-size: 2.0rem;}
+  div, input, .name-btn {font-size: 1.5rem;}
+  h2 {margin-top:0.5rem;}
+  h2,h3 {margin-bottom:0.2rem;}
   table {font-size:1.2rem;border-collapse:collapse;}
-  #message-table, #table-ctnr {width: 90%; margin:0 auto;
-                                border:thin solid darkgray}
+  #name-set, #message-table, #table-ctnr {width: 90%; margin:0 auto;}
+  #message-table, #table-ctnr {border:thin solid darkgray}
+  #name-set {display:flex; flex-direction:row;}
+  input {flex-grow: 1;}
+  .button-row {display:flex; flex-direction:row;justify-content:center;}
   #table-ctnr {height:12rem;overflow-y:scroll;}
   #table-ctnr table {width:100%;}
   #table-ctnr table tr:nth-child(even) {background-color:#eee}
+  #table-ctnr div {display:flex;flex-direction:column;justify-content:center;
+                   height:100%;}
   td {padding-top:0.3em; padding-bottom:0.3em;}
   th {text-align:right;}
   td {text-align:left;padding-left:1rem;}
   button {font-size:1.2rem; border-radius:0.5em;background-color:lightgray;
           margin:0 0.5rem;user-select:none;}
+  button:disabled, input:disabled { color:gray; }
   button:focus {outline:0;}
 </style>
 <script>
@@ -74,9 +83,8 @@ export default {
     adHocResponseCount: 0,
     registrants: {}
   }},
-  async mounted() {
+  mounted() {
     this.setInitialState();
-    await this.fetchRegistrants();
   },
   beforeDestroy() {
     if (this.sseLTClient !== null)
@@ -89,6 +97,9 @@ export default {
       let _this = this;
       this.sseLTClient = await ServerEventClientFactory.create(
         this.name, this.APPURL, {
+          sseOpened(state, stateText) {
+            _this.fetchRegistrants();
+          },
           sseNotify(what) {
             switch(what) {
               case 'listeners-changed':
@@ -108,7 +119,6 @@ export default {
 
       await this.sseLTClient.listen('listeners-changed');
       await this.sseLTClient.listen('clock-tick');
-      await this.fetchRegistrants();
     },
     async submitClicked(){
       if (this.sseTaskClient === null) {
