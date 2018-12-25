@@ -38,7 +38,7 @@
     <button @click="clearRegistrantsClicked">Clear Registrants</button>
     <button @click="triggerCleanupClicked">Trigger Cleanup</button><br/><br/>
     <button @click="triggerServerResponseClicked"
-            :disabled="inactive">Trigger Server Response</button>
+            :disabled="inactive">Trigger AdHoc Task Server Response</button>
   </div>
 </template>
 <style>
@@ -126,10 +126,17 @@ export default {
         this.sseTaskClient = await ServerEventClientFactory.create(
           this.name, this.APPURL, {
             sseTaskCompleted(taskid) {
-              _this.response = 'Task completed: ' + taskid;
-            },
-            sseAdHocResponse(){
-              _this.response = "Got Ad Hoc response - " + ++_this.adHocResponseCount;
+              switch(taskid) {
+                case "timeout_task":
+                  _this.response = 'Task completed: ' + taskid;
+                  break;
+                case "ad-hoc":
+                  _this.response = "Got Ad Hoc response - " + ++_this.adHocResponseCount;
+                  break;
+                default:
+                  console.error("sseTaskCompleted, bad taskid: " + taskid);
+                  break;
+              };
             },
             sseError(id, sseState, sseStateText) {
               _this.state = sseStateText;
@@ -163,11 +170,11 @@ export default {
       this.sseTaskClient.clearRegistrants();
       this.fetchRegistrants();
     },
-    triggerServerResponseClicked() {
-      this.sseTaskClient.triggerAdHocServerResponse();
-    },
     triggerCleanupClicked() {
       this.sseTaskClient.triggerCleanup();
+    },
+    triggerServerResponseClicked() {
+      this.sseTaskClient.submitTask('ad-hoc');
     },
     makeTickTimeString(timestamp) {
       return new Date(timestamp).toTimeString().substring(0, 8);

@@ -41,10 +41,17 @@ app.put(ServerEventMgr.prefix + 'submit-task/:id/:taskid', function(req, res) {
   let id = req.params.id, taskid = req.params.taskid;
   log('app:submit-task, id: ' + id + ', taskid:' + taskid);
   if (ServerEventMgr.isRegistered(id)) {
-    setTimeout(async ()=>{
-      await ServerEventMgr.notifyCompletions(id, taskid);
-    }, 5000);
-    res.send("ok")
+    let delay = taskid === 'timeout_task'? 5000 :
+                taskid === 'ad-hoc'? 0 : -1;
+    if (delay === -1) {
+      res.status(500).send("no task for: " + taskid);
+    }
+    else {
+      setTimeout(async ()=>{
+        await ServerEventMgr.notifyCompletions(id, taskid);
+      }, delay);
+      res.send("ok")
+    }
   }
   else
     res.status(404).send("not found");

@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "@aphorica/server-event-mgr": "^0.1.2",
+    "@aphorica/server-event-mgr": "file:.yalc/@aphorica/server-event-mgr",
     "express": "^4.16.4"
   }
 }

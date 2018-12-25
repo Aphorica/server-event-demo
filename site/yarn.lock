@@ -2,10 +2,8 @@
 # yarn lockfile v1
 
 
-"@aphorica/server-event-client@^0.1.2":
-  version "0.1.2"
-  resolved "https://registry.yarnpkg.com/@aphorica/server-event-client/-/server-event-client-0.1.2.tgz#3188ea321c47e8788064ce2fdc4da193046f6294"
-  integrity sha512-xm0ehD4XTIXHrolsQO1Wt4xWcWlohKm1b2oj/xvNP7DxuON7LoON7HkiPBNPrn5Z/qlrsVd5cZfunm+rQefXRg==
+"@aphorica/server-event-client@file:.yalc/@aphorica/server-event-client":
+  version "0.1.2-c38a092a"
 
 "@babel/code-frame@^7.0.0":
   version "7.0.0"
