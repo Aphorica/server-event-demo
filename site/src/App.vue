@@ -19,6 +19,7 @@
     </div>
     <br/>
     <table id="message-table">
+      <tr><td class="task-title" colspan=2>Task Info</td></tr>
       <tr><th>Message:</th><td>{{message}}</td></tr>
       <tr><th>Response:</th><td>{{response}}</td></tr>
       <tr><th>State:</th><td id="state">{{state}}</td></tr>
@@ -65,6 +66,8 @@
           margin:0 0.5rem;user-select:none;}
   button:disabled, input:disabled { color:gray; }
   button:focus {outline:0;}
+  .task-title {border-bottom:thin solid darkgray;text-align:center;
+               padding:0.3em 0; }
 </style>
 <script>
 import ServerEventClientFactory from '@aphorica/server-event-client';
@@ -125,6 +128,9 @@ export default {
         let _this = this;
         this.sseTaskClient = await ServerEventClientFactory.create(
           this.name, this.APPURL, {
+            sseOpened(sseState, sseStateText) {
+              _this.state = sseStateText;
+            },
             sseTaskCompleted(taskid) {
               switch(taskid) {
                 case "timeout_task":
@@ -138,12 +144,13 @@ export default {
                   break;
               };
             },
-            sseError(id, sseState, sseStateText) {
-              _this.state = sseStateText;
+            sseError(sseState, sseStateText) {
+              _this.state = "Error: " + sseStateText;
             },
             sseClosed(){
               _this.sseTaskClient = null;
               _this.setInitialState();
+              _this.state = "closed";
             }
           });
       }

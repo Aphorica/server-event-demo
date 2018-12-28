@@ -2,8 +2,12 @@
 # yarn lockfile v1
 
 
-"@aphorica/server-event-client@file:.yalc/@aphorica/server-event-client":
-  version "0.1.2-c38a092a"
+"@aphorica/server-event-client@^0.1.4":
+  version "0.1.4"
+  resolved "https://registry.yarnpkg.com/@aphorica/server-event-client/-/server-event-client-0.1.4.tgz#f3bdbb5858cb59329d0c31e64b0be9bc5e24b69d"
+  integrity sha512-lGHPItS2XYreUWpTPQIfqT00kTHjqHmFCXNm7uUGzZ0KFMJDrypgMupyocEtWS8ZEwnX1EY+U+hNvIu2FVbjDA==
+  dependencies:
+    eventsource "^1.0.7"
 
 "@babel/code-frame@^7.0.0":
   version "7.0.0"
@@ -1287,6 +1291,11 @@ babel-plugin-transform-vue-jsx@^4.0.1:
   integrity sha512-wbOz7ITB5cloLSjKUU1hWn8zhR+Dwah/RZiTiJY/CQliCwhowmzu6m7NEF+y5EJX/blDzGjRtZvC10Vdb3Q7vw==
   dependencies:
     esutils "^2.0.2"
+
+babel-regenerator-runtime@^6.5.0:
+  version "6.5.0"
+  resolved "https://registry.yarnpkg.com/babel-regenerator-runtime/-/babel-regenerator-runtime-6.5.0.tgz#0e41cd1c9f80442466f015c749fff8ba98f8e110"
+  integrity sha1-DkHNHJ+ARCRm8BXHSf/4upj44RA=
 
 balanced-match@^1.0.0:
   version "1.0.0"
@@ -5437,6 +5446,11 @@ promise-inflight@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/promise-inflight/-/promise-inflight-1.0.1.tgz#98472870bf228132fcbdd868129bad12c3c029e3"
   integrity sha1-mEcocL8igTL8vdhoEputEsPAKeM=
+
+promise-polyfill@^8.1.0:
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/promise-polyfill/-/promise-polyfill-8.1.0.tgz#30059da54d1358ce905ac581f287e184aedf995d"
+  integrity sha512-OzSf6gcCUQ01byV4BgwyUCswlaQQ6gzXc23aLQWhicvfX9kfsUiUhgt3CCQej8jDnl8/PhGF31JdHX2/MzF3WA==
 
 proxy-addr@~2.0.4:
   version "2.0.4"

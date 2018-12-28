@@ -2,7 +2,7 @@ const express = require('express');
 const ServerEventMgr = require('@aphorica/server-event-mgr');
 const app = express();
 
-const VERBOSE = true;
+const VERBOSE = false;
 let intervalID = -1;
 
 function log(str) {
@@ -12,10 +12,10 @@ function log(str) {
 
 var allowCrossDomain = function(req, res, next) {
   log('allowXDomain: ' + req.method + ' ' + req.path);
-  if (req.path.indexOf('/register-listener/') === -1) {
+  if (req.method === 'OPTIONS' || req.path.indexOf('/register-listener/') === -1) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Content-Length, X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Accept, Authorization, Content-Length, X-Requested-With');
     // intercept OPTIONS method
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
