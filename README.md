@@ -13,4 +13,4 @@ packages:
 
   - npm package: [here](https://www.npmjs.com/package/@aphorica/server-event-mgr)
 
-Overall documentation: [here](https://aphorica.github.com/server-event-docs)
+Overall documentation: [here](https://aphorica.github.io/server-event-docs)
